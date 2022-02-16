@@ -1,5 +1,7 @@
 package orb
 
+import "github.com/paulmach/orb/math"
+
 // EarthRadius is the radius of the earth in meters. It is used in geo distance calculations.
 // To keep things consistent, this value matches WGS84 Web Mercator (EPSG:3857).
 const EarthRadius = 6378137.0 // meters
@@ -28,8 +30,9 @@ type DistanceFunc func(Point, Point) float64
 type Projection func(Point) Point
 
 // Pointer is something that can be represented by a point.
-type Pointer interface {
-	Point() Point
+type Pointer = PointerOf[float64]
+type PointerOf[T math.Number] interface {
+	Point() PointOf[T]
 }
 
 // A Simplifier is something that can simplify geometry.

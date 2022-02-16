@@ -76,10 +76,31 @@ func BenchmarkRandomInBound1000(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
+	var last int
 	for i := 0; i < b.N; i++ {
 		p := orb.Point{r.Float64(), r.Float64()}
-		qt.InBound(nil, p.Bound().Pad(0.1))
+		last = len(qt.InBound(nil, p.Bound().Pad(0.1)))
 	}
+	b.Log("last", last)
+}
+
+func BenchmarkRandomInBound1000Int64(b *testing.B) {
+	r := rand.New(rand.NewSource(43))
+	max := int64(1000)
+
+	qt := New(orb.BoundOf[int64]{Min: orb.PointOf[int64]{0, 0}, Max: orb.PointOf[int64]{max, max}})
+	for i := 0; i < 1000; i++ {
+		qt.Add(orb.PointOf[int64]{r.Int63n(max), r.Int63n(max)})
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	var last int
+	for i := 0; i < b.N; i++ {
+		p := orb.PointOf[int64]{r.Int63n(max), r.Int63n(max)}
+		last = len(qt.InBound(nil, p.Bound().Pad(max/10)))
+	}
+	b.Log("last", last)
 }
 
 func BenchmarkRandomInBound1000Naive(b *testing.B) {

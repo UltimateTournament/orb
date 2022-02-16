@@ -1,19 +1,22 @@
 package quadtree
 
-import "github.com/paulmach/orb"
+import (
+	"github.com/paulmach/orb"
+	"github.com/paulmach/orb/math"
+)
 
 // maxHeap is used for the knearest list. We need a way to maintain
 // the furthest point from the query point in the list, hence maxHeap.
 // When we find a point closer than the furthest away, we remove
 // furthest and add the new point to the heap.
-type maxHeap []*heapItem
+type maxHeap[T math.Number] []*heapItem[T]
 
-type heapItem struct {
-	point    orb.Pointer
-	distance float64
+type heapItem[T math.Number] struct {
+	point    orb.PointerOf[T]
+	distance T
 }
 
-func (h *maxHeap) Push(point orb.Pointer, distance float64) {
+func (h *maxHeap[T]) Push(point orb.PointerOf[T], distance T) {
 	// Common usage is Push followed by a Pop if we have > k points.
 	// We're reusing the k+1 heapItem object to reduce memory allocations.
 	// First we manaully lengthen the slice,
@@ -22,7 +25,7 @@ func (h *maxHeap) Push(point orb.Pointer, distance float64) {
 	prevLen := len(*h)
 	*h = (*h)[:prevLen+1]
 	if (*h)[prevLen] == nil {
-		(*h)[prevLen] = &heapItem{point: point, distance: distance}
+		(*h)[prevLen] = &heapItem[T]{point: point, distance: distance}
 	} else {
 		(*h)[prevLen].point = point
 		(*h)[prevLen].distance = distance
@@ -53,7 +56,7 @@ func (h *maxHeap) Push(point orb.Pointer, distance float64) {
 
 // Pop returns the "greatest" item in the list.
 // The returned item should not be saved across push/pop operations.
-func (h *maxHeap) Pop() *heapItem {
+func (h *maxHeap[T]) Pop() *heapItem[T] {
 	removed := (*h)[0]
 	lastItem := (*h)[len(*h)-1]
 	(*h) = (*h)[:len(*h)-1]

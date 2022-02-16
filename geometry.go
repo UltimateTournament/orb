@@ -25,14 +25,14 @@ var (
 	_ Geometry = Collection{}
 )
 
-func (p Point) private()             {}
-func (mp MultiPoint) private()       {}
-func (ls LineString) private()       {}
+func (p PointOf[T]) private()        {}
+func (mp MultiPointOf[T]) private()  {}
+func (ls LineStringOf[T]) private()  {}
 func (mls MultiLineString) private() {}
-func (r Ring) private()              {}
-func (p Polygon) private()           {}
+func (r RingOf[T]) private()         {}
+func (p PolygonOf[T]) private()      {}
 func (mp MultiPolygon) private()     {}
-func (b Bound) private()             {}
+func (b BoundOf[T]) private()        {}
 func (c Collection) private()        {}
 
 // AllGeometries lists all possible types and values that a geometry

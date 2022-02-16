@@ -121,7 +121,7 @@ func TestQuadtreeMatching(t *testing.T) {
 
 	cases := []struct {
 		name     string
-		filter   FilterFunc
+		filter   FilterFunc[float64]
 		point    orb.Point
 		expected orb.Pointer
 	}{
@@ -175,7 +175,7 @@ func TestQuadtreeKNearest(t *testing.T) {
 	q.Add(dataPointer{orb.Point{4, 4}, false})
 	q.Add(dataPointer{orb.Point{5, 5}, true})
 
-	filters := map[bool]FilterFunc{
+	filters := map[bool]FilterFunc[float64]{
 		false: nil,
 		true:  func(p orb.Pointer) bool { return p.(dataPointer).visible },
 	}
@@ -269,7 +269,7 @@ func TestQuadtreeKNearest_DistanceLimit(t *testing.T) {
 	q.Add(dataPointer{orb.Point{4, 4}, false})
 	q.Add(dataPointer{orb.Point{5, 5}, true})
 
-	filters := map[bool]FilterFunc{
+	filters := map[bool]FilterFunc[float64]{
 		false: nil,
 		true:  func(p orb.Pointer) bool { return p.(dataPointer).visible },
 	}
@@ -341,7 +341,7 @@ func TestQuadtreeInBoundMatching(t *testing.T) {
 	q.Add(dataPointer{orb.Point{4, 4}, false})
 	q.Add(dataPointer{orb.Point{5, 5}, true})
 
-	filters := map[bool]FilterFunc{
+	filters := map[bool]FilterFunc[float64]{
 		false: nil,
 		true:  func(p orb.Pointer) bool { return p.(dataPointer).visible },
 	}

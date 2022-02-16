@@ -9,7 +9,7 @@ func TestMaxHeap(t *testing.T) {
 	r := rand.New(rand.NewSource(22))
 
 	for i := 1; i < 100; i++ {
-		h := make(maxHeap, 0, i)
+		h := make(maxHeap[float64], 0, i)
 		for j := 0; j < i; j++ {
 			h.Push(nil, r.Float64())
 		}

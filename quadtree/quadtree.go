@@ -6,9 +6,9 @@ package quadtree
 
 import (
 	"errors"
-	"math"
 
 	"github.com/paulmach/orb"
+	"github.com/paulmach/orb/math"
 	"github.com/paulmach/orb/planar"
 )
 
@@ -18,38 +18,40 @@ var (
 	ErrPointOutsideOfBounds = errors.New("quadtree: point outside of bounds")
 )
 
+type Quadtree = QuadtreeOf[float64]
+
 // Quadtree implements a two-dimensional recursive spatial subdivision
 // of orb.Pointers. This implementation uses rectangular partitions.
-type Quadtree struct {
-	bound orb.Bound
-	root  *node
+type QuadtreeOf[T math.Number] struct {
+	bound orb.BoundOf[T]
+	root  *node[T]
 }
 
 // A FilterFunc is a function that filters the points to search for.
-type FilterFunc func(p orb.Pointer) bool
+type FilterFunc[T math.Number] func(p orb.PointerOf[T]) bool
 
 // node represents a node of the quad tree. Each node stores a Value
 // and has links to its 4 children
-type node struct {
-	Value    orb.Pointer
-	Children [4]*node
+type node[T math.Number] struct {
+	Value    orb.PointerOf[T]
+	Children [4]*node[T]
 }
 
 // New creates a new quadtree for the given bound. Added points
 // must be within this bound.
-func New(bound orb.Bound) *Quadtree {
-	return &Quadtree{bound: bound}
+func New[T math.Number](bound orb.BoundOf[T]) *QuadtreeOf[T] {
+	return &QuadtreeOf[T]{bound: bound}
 }
 
 // Bound returns the bounds used for the quad tree.
-func (q *Quadtree) Bound() orb.Bound {
+func (q *QuadtreeOf[T]) Bound() orb.BoundOf[T] {
 	return q.bound
 }
 
 // Add puts an object into the quad tree, must be within the quadtree bounds.
 // This function is not thread-safe, ie. multiple goroutines cannot insert into
 // a single quadtree.
-func (q *Quadtree) Add(p orb.Pointer) error {
+func (q *QuadtreeOf[T]) Add(p orb.PointerOf[T]) error {
 	if p == nil {
 		return nil
 	}
@@ -60,7 +62,7 @@ func (q *Quadtree) Add(p orb.Pointer) error {
 	}
 
 	if q.root == nil {
-		q.root = &node{
+		q.root = &node[T]{
 			Value: p,
 		}
 		return nil
@@ -77,7 +79,7 @@ func (q *Quadtree) Add(p orb.Pointer) error {
 }
 
 // add is the recursive search to find a place to add the point
-func (q *Quadtree) add(n *node, p orb.Pointer, point orb.Point, left, right, bottom, top float64) {
+func (q *QuadtreeOf[T]) add(n *node[T], p orb.PointerOf[T], point orb.PointOf[T], left, right, bottom, top T) {
 	i := 0
 
 	// figure which child of this internal node the point is in.
@@ -96,7 +98,7 @@ func (q *Quadtree) add(n *node, p orb.Pointer, point orb.Point, left, right, bot
 	}
 
 	if n.Children[i] == nil {
-		n.Children[i] = &node{Value: p}
+		n.Children[i] = &node[T]{Value: p}
 		return
 	}
 
@@ -110,23 +112,23 @@ func (q *Quadtree) add(n *node, p orb.Pointer, point orb.Point, left, right, bot
 //	func(pointer orb.Pointer) {
 //		return pointer.(*MyType).ID == lookingFor.ID
 //	}
-func (q *Quadtree) Remove(p orb.Pointer, eq FilterFunc) bool {
+func (q *QuadtreeOf[T]) Remove(p orb.PointerOf[T], eq FilterFunc[T]) bool {
 	if eq == nil {
 		point := p.Point()
-		eq = func(pointer orb.Pointer) bool {
+		eq = func(pointer orb.PointerOf[T]) bool {
 			return point.Equal(pointer.Point())
 		}
 	}
 
 	b := q.bound
-	v := &findVisitor{
+	v := &findVisitor[T]{
 		point:          p.Point(),
 		filter:         eq,
 		closestBound:   &b,
-		minDistSquared: math.MaxFloat64,
+		minDistSquared: math.MaxOf[T](),
 	}
 
-	newVisit(v).Visit(q.root,
+	newVisit[T](v).Visit(q.root,
 		// q.bound.Left(), q.bound.Right(),
 		// q.bound.Bottom(), q.bound.Top(),
 		q.bound.Min[0], q.bound.Max[0],
@@ -142,7 +144,7 @@ func (q *Quadtree) Remove(p orb.Pointer, eq FilterFunc) bool {
 }
 
 // removeNode is the recursive fixing up of the tree when we remove a node.
-func removeNode(n *node) {
+func removeNode[T math.Number](n *node[T]) {
 	var i int
 	for {
 		i = -1
@@ -176,27 +178,27 @@ func removeNode(n *node) {
 // Find returns the closest Value/Pointer in the quadtree.
 // This function is thread safe. Multiple goroutines can read from
 // a pre-created tree.
-func (q *Quadtree) Find(p orb.Point) orb.Pointer {
+func (q *QuadtreeOf[T]) Find(p orb.PointOf[T]) orb.PointerOf[T] {
 	return q.Matching(p, nil)
 }
 
 // Matching returns the closest Value/Pointer in the quadtree for which
 // the given filter function returns true. This function is thread safe.
 // Multiple goroutines can read from a pre-created tree.
-func (q *Quadtree) Matching(p orb.Point, f FilterFunc) orb.Pointer {
+func (q *QuadtreeOf[T]) Matching(p orb.PointOf[T], f FilterFunc[T]) orb.PointerOf[T] {
 	if q.root == nil {
 		return nil
 	}
 
 	b := q.bound
-	v := &findVisitor{
+	v := &findVisitor[T]{
 		point:          p,
 		filter:         f,
 		closestBound:   &b,
-		minDistSquared: math.MaxFloat64,
+		minDistSquared: math.MaxOf[T](),
 	}
 
-	newVisit(v).Visit(q.root,
+	newVisit[T](v).Visit(q.root,
 		// q.bound.Left(), q.bound.Right(),
 		// q.bound.Bottom(), q.bound.Top(),
 		q.bound.Min[0], q.bound.Max[0],
@@ -214,7 +216,7 @@ func (q *Quadtree) Matching(p orb.Point, f FilterFunc) orb.Pointer {
 // An optional buffer parameter is provided to allow for the reuse of result slice memory.
 // The points are returned in a sorted order, nearest first.
 // This function allows defining a maximum distance in order to reduce search iterations.
-func (q *Quadtree) KNearest(buf []orb.Pointer, p orb.Point, k int, maxDistance ...float64) []orb.Pointer {
+func (q *QuadtreeOf[T]) KNearest(buf []orb.PointerOf[T], p orb.PointOf[T], k int, maxDistance ...T) []orb.PointerOf[T] {
 	return q.KNearestMatching(buf, p, k, nil, maxDistance...)
 }
 
@@ -224,26 +226,26 @@ func (q *Quadtree) KNearest(buf []orb.Pointer, p orb.Point, k int, maxDistance .
 // parameter is provided to allow for the reuse of result slice memory.
 // The points are returned in a sorted order, nearest first.
 // This function allows defining a maximum distance in order to reduce search iterations.
-func (q *Quadtree) KNearestMatching(buf []orb.Pointer, p orb.Point, k int, f FilterFunc, maxDistance ...float64) []orb.Pointer {
+func (q *QuadtreeOf[T]) KNearestMatching(buf []orb.PointerOf[T], p orb.PointOf[T], k int, f FilterFunc[T], maxDistance ...T) []orb.PointerOf[T] {
 	if q.root == nil {
 		return nil
 	}
 
 	b := q.bound
-	v := &nearestVisitor{
+	v := &nearestVisitor[T]{
 		point:          p,
 		filter:         f,
 		k:              k,
-		maxHeap:        make(maxHeap, 0, k+1),
+		maxHeap:        make(maxHeap[T], 0, k+1),
 		closestBound:   &b,
-		maxDistSquared: math.MaxFloat64,
+		maxDistSquared: math.MaxOf[T](),
 	}
 
 	if len(maxDistance) > 0 {
 		v.maxDistSquared = maxDistance[0] * maxDistance[0]
 	}
 
-	newVisit(v).Visit(q.root,
+	newVisit[T](v).Visit(q.root,
 		// q.bound.Left(), q.bound.Right(),
 		// q.bound.Bottom(), q.bound.Top(),
 		q.bound.Min[0], q.bound.Max[0],
@@ -252,7 +254,7 @@ func (q *Quadtree) KNearestMatching(buf []orb.Pointer, p orb.Point, k int, f Fil
 
 	//repack result
 	if cap(buf) < len(v.maxHeap) {
-		buf = make([]orb.Pointer, len(v.maxHeap))
+		buf = make([]orb.PointerOf[T], len(v.maxHeap))
 	} else {
 		buf = buf[:len(v.maxHeap)]
 	}
@@ -268,7 +270,7 @@ func (q *Quadtree) KNearestMatching(buf []orb.Pointer, p orb.Point, k int, f Fil
 // within the given bound. An optional buffer parameter is provided to allow
 // for the reuse of result slice memory. This function is thread safe.
 // Multiple goroutines can read from a pre-created tree.
-func (q *Quadtree) InBound(buf []orb.Pointer, b orb.Bound) []orb.Pointer {
+func (q *QuadtreeOf[T]) InBound(buf []orb.PointerOf[T], b orb.BoundOf[T]) []orb.PointerOf[T] {
 	return q.InBoundMatching(buf, b, nil)
 }
 
@@ -276,22 +278,22 @@ func (q *Quadtree) InBound(buf []orb.Pointer, b orb.Bound) []orb.Pointer {
 // within the given bound and matching the give filter function. An optional buffer
 // parameter is provided to allow for the reuse of result slice memory. This function
 // is thread safe.  Multiple goroutines can read from a pre-created tree.
-func (q *Quadtree) InBoundMatching(buf []orb.Pointer, b orb.Bound, f FilterFunc) []orb.Pointer {
+func (q *QuadtreeOf[T]) InBoundMatching(buf []orb.PointerOf[T], b orb.BoundOf[T], f FilterFunc[T]) []orb.PointerOf[T] {
 	if q.root == nil {
 		return nil
 	}
 
-	var p []orb.Pointer
+	var p []orb.PointerOf[T]
 	if len(buf) > 0 {
 		p = buf[:0]
 	}
-	v := &inBoundVisitor{
+	v := &inBoundVisitor[T]{
 		bound:    &b,
 		pointers: p,
 		filter:   f,
 	}
 
-	newVisit(v).Visit(q.root,
+	newVisit[T](v).Visit(q.root,
 		// q.bound.Left(), q.bound.Right(),
 		// q.bound.Bottom(), q.bound.Top(),
 		q.bound.Min[0], q.bound.Max[0],
@@ -305,32 +307,32 @@ func (q *Quadtree) InBoundMatching(buf []orb.Pointer, b orb.Bound, f FilterFunc)
 // d3.quadtree.visit function. It is not exported, but if there is a
 // good use case, it could be.
 
-type visitor interface {
+type visitor[T math.Number] interface {
 	// Bound returns the current relevant bound so we can prune irrelevant nodes
 	// from the search. Using a pointer was benchmarked to be 5% faster than
 	// having to copy the bound on return. go1.9
-	Bound() *orb.Bound
-	Visit(n *node)
+	Bound() *orb.BoundOf[T]
+	Visit(n *node[T])
 
 	// Point should return the specific point being search for, or null if there
 	// isn't one (ie. searching by bound). This helps guide the search to the
 	// best child node first.
-	Point() orb.Point
+	Point() orb.PointOf[T]
 }
 
 // visit provides a framework for walking the quad tree.
 // Currently used by the `Find` and `InBound` functions.
-type visit struct {
-	visitor visitor
+type visit[T math.Number] struct {
+	visitor visitor[T]
 }
 
-func newVisit(v visitor) *visit {
-	return &visit{
+func newVisit[T math.Number](v visitor[T]) *visit[T] {
+	return &visit[T]{
 		visitor: v,
 	}
 }
 
-func (v *visit) Visit(n *node, left, right, bottom, top float64) {
+func (v *visit[T]) Visit(n *node[T], left, right, bottom, top T) {
 	b := v.visitor.Bound()
 	// if left > b.Right() || right < b.Left() ||
 	// 	bottom > b.Top() || top < b.Bottom() {
@@ -372,23 +374,23 @@ func (v *visit) Visit(n *node, left, right, bottom, top float64) {
 	}
 }
 
-type findVisitor struct {
-	point          orb.Point
-	filter         FilterFunc
-	closest        *node
-	closestBound   *orb.Bound
-	minDistSquared float64
+type findVisitor[T math.Number] struct {
+	point          orb.PointOf[T]
+	filter         FilterFunc[T]
+	closest        *node[T]
+	closestBound   *orb.BoundOf[T]
+	minDistSquared T
 }
 
-func (v *findVisitor) Bound() *orb.Bound {
+func (v *findVisitor[T]) Bound() *orb.BoundOf[T] {
 	return v.closestBound
 }
 
-func (v *findVisitor) Point() orb.Point {
+func (v *findVisitor[T]) Point() orb.PointOf[T] {
 	return v.point
 }
 
-func (v *findVisitor) Visit(n *node) {
+func (v *findVisitor[T]) Visit(n *node[T]) {
 	// skip this pointer if we have a filter and it doesn't match
 	if v.filter != nil && !v.filter(n.Value) {
 		return
@@ -449,24 +451,24 @@ func (v *findVisitor) Visit(n *node) {
 // 	return item
 // }
 
-type nearestVisitor struct {
-	point          orb.Point
-	filter         FilterFunc
+type nearestVisitor[T math.Number] struct {
+	point          orb.PointOf[T]
+	filter         FilterFunc[T]
 	k              int
-	maxHeap        maxHeap
-	closestBound   *orb.Bound
-	maxDistSquared float64
+	maxHeap        maxHeap[T]
+	closestBound   *orb.BoundOf[T]
+	maxDistSquared T
 }
 
-func (v *nearestVisitor) Bound() *orb.Bound {
+func (v *nearestVisitor[T]) Bound() *orb.BoundOf[T] {
 	return v.closestBound
 }
 
-func (v *nearestVisitor) Point() orb.Point {
+func (v *nearestVisitor[T]) Point() orb.PointOf[T] {
 	return v.point
 }
 
-func (v *nearestVisitor) Visit(n *node) {
+func (v *nearestVisitor[T]) Visit(n *node[T]) {
 	// skip this pointer if we have a filter and it doesn't match
 	if v.filter != nil && !v.filter(n.Value) {
 		return
@@ -495,21 +497,21 @@ func (v *nearestVisitor) Visit(n *node) {
 	}
 }
 
-type inBoundVisitor struct {
-	bound    *orb.Bound
-	pointers []orb.Pointer
-	filter   FilterFunc
+type inBoundVisitor[T math.Number] struct {
+	bound    *orb.BoundOf[T]
+	pointers []orb.PointerOf[T]
+	filter   FilterFunc[T]
 }
 
-func (v *inBoundVisitor) Bound() *orb.Bound {
+func (v *inBoundVisitor[T]) Bound() *orb.BoundOf[T] {
 	return v.bound
 }
 
-func (v *inBoundVisitor) Point() (p orb.Point) {
+func (v *inBoundVisitor[T]) Point() (p orb.PointOf[T]) {
 	return
 }
 
-func (v *inBoundVisitor) Visit(n *node) {
+func (v *inBoundVisitor[T]) Visit(n *node[T]) {
 	if v.filter != nil && !v.filter(n.Value) {
 		return
 	}
@@ -523,7 +525,7 @@ func (v *inBoundVisitor) Visit(n *node) {
 	v.pointers = append(v.pointers, n.Value)
 }
 
-func childIndex(cx, cy float64, point orb.Point) int {
+func childIndex[T math.Number](cx, cy T, point orb.PointOf[T]) int {
 	i := 0
 	if point[1] <= cy {
 		i = 2
