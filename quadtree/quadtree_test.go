@@ -110,6 +110,8 @@ func TestQuadtreeRemoveAndAdd(t *testing.T) {
 func TestQuadtreeRemoveAndAddRandom(t *testing.T) {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
+	idd := 0
+
 	bounds := orb.Bound{Min: orb.Point{0, 0}, Max: orb.Point{3000, 3000}}
 	qt := New(bounds)
 	points := make([]*PExtra, 0, 3000)
@@ -118,9 +120,10 @@ func TestQuadtreeRemoveAndAddRandom(t *testing.T) {
 	for i := 0; i < runs; i++ {
 
 		for i := 0; i < perRun; i++ {
+			idd++
 			x := r.Int63n(30)
 			y := r.Int63n(30)
-			p := &PExtra{p: orb.Point{float64(x), float64(y)}, id: fmt.Sprintf("%dx%d", x, y)}
+			p := &PExtra{p: orb.Point{float64(x), float64(y)}, id: fmt.Sprintf("%d", idd)}
 			qt.Add(p)
 			points = append(points, p)
 		}
@@ -138,6 +141,44 @@ func TestQuadtreeRemoveAndAddRandom(t *testing.T) {
 	expected := runs * perRun / 2
 	if left != expected {
 		t.Error("WRONG: ", left, expected)
+	}
+}
+
+func TestQuadtreeRemoveAndAddRandom2(t *testing.T) {
+	//r := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	bounds := orb.Bound{Min: orb.Point{0, 0}, Max: orb.Point{1, 1}}
+	qt := New(bounds)
+	points := make([]*PExtra, 0, 10)
+
+	for i := 0; i < 10; i++ {
+		x := 1
+		y := 1
+		p := &PExtra{p: orb.Point{float64(x), float64(y)}, id: fmt.Sprintf("%dx%d", x, y)}
+		qt.Add(p)
+		points = append(points, p)
+	}
+	// for i := 0; i < 5; i++ {
+	// 	k := i
+	// 	fmt.Println(k)
+	// 	remP := points[k]
+	// 	points = append(points[:k], points[k+1:]...)
+	// 	qt.Remove(remP, func(p orb.Pointer) bool {
+	// 		fon := p.(*PExtra) == remP
+	// 		return fon
+	// 	})
+	// }
+	for _, remP := range points {
+		qt.Remove(remP, func(p orb.Pointer) bool {
+			fon := p.(*PExtra) == remP
+			return fon
+		})
+	}
+
+	left := len(qt.InBound(nil, bounds))
+
+	if left != 5 {
+		t.Error("WRONG: ", left, 5)
 	}
 }
 
